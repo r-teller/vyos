@@ -131,7 +131,7 @@ jobs:
               -e GOSU_UID=$(id -u) \
               -e GOSU_GID=$(id -g) \
               "vyos/vyos-build:equuleus" \
-              bash "/build/images/gce/build_script.sh" GCE
+              bash "/build/images/gce/build_script.sh" iso
       - uses: actions/upload-artifact@v3
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
         with:
