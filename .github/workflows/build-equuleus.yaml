@@ -1,4 +1,4 @@
-name: Build Sagitta
+name: Build Equuleus
 on: 
   push:
     branches:
@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should_build: ${{ steps.calculate_outputs.outputs.SHOULD_BUILD }}
-      commit: ${{ steps.check_commit.outputs.SAGITTA_COMMIT }}
+      commit: ${{ steps.check_commit.outputs.EQUULEUS_COMMIT }}
       commit_datetime: ${{ steps.check_commit.outputs.COMMIT_DATETIME}}
       branch_name: ${{ steps.extract_branch.outputs.BRANCH_NAME}}
     steps:
@@ -21,13 +21,13 @@ jobs:
         id: check_commit
         run: |
           # Clone the build script
-          git clone -b sagitta --single-branch https://github.com/vyos/vyos-build
+          git clone -b equuleus --single-branch https://github.com/vyos/vyos-build
           cd vyos-build
           COMMIT_ID=$(git rev-parse HEAD)
           COMMIT_DATETIME=$(git show -s --format=%cd --date=format:'%Y%m%d%H%M%S' $COMMIT_ID)
 
           # Save the commit id as output
-          echo "::set-output name=SAGITTA_COMMIT::$COMMIT_ID"
+          echo "::set-output name=EQUULEUS_COMMIT::$COMMIT_ID"
           echo "::set-output name=COMMIT_DATETIME::$COMMIT_DATETIME"
 
           # Remove the cloned data
@@ -105,7 +105,7 @@ jobs:
       - name: Pull docker image
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
         run: |
-          docker pull "vyos/vyos-build:sagitta"
+          docker pull "vyos/vyos-build:equuleus"
       - name: "Patch the make scripts"
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
         run: |
@@ -123,14 +123,14 @@ jobs:
               --rm \
               -v "$(pwd)":/gce-vyos \
               -v "$(pwd)/vyos-build":/vyos-build \
-              -e VYOS_VERSION="sagitta" \
+              -e VYOS_VERSION="equuleus" \
               -e BUILD_BY="Github Action" \
               -w /vyos-build \
               --privileged \
               --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
               -e GOSU_UID=$(id -u) \
               -e GOSU_GID=$(id -g) \
-              "vyos/vyos-build:sagitta" \
+              "vyos/vyos-build:equuleus" \
               bash "/gce-vyos/vyos-gce-image/build_script.sh" iso
       - uses: actions/upload-artifact@v3
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
@@ -150,14 +150,14 @@ jobs:
               --rm \
               -v "$(pwd)":/gce-vyos \
               -v "$(pwd)/vyos-build":/vyos-build \
-              -e VYOS_VERSION="sagitta" \
+              -e VYOS_VERSION="equuleus" \
               -e BUILD_BY="Github Action" \
               -w /vyos-build \
               --privileged \
               --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
               -e GOSU_UID=$(id -u) \
               -e GOSU_GID=$(id -g) \
-              "vyos/vyos-build:sagitta" \
+              "vyos/vyos-build:equuleus" \
               bash "/gce-vyos/vyos-gce-image/build_script.sh" GCE
       - uses: actions/upload-artifact@v3
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
@@ -168,7 +168,7 @@ jobs:
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
         run: |
           SOURCE=$(ls ./vyos-build/build/VyOS-*.tar.gz)
-          mv "$SOURCE" ./vyos-sagitta-image-gce.tar.gz
+          mv "$SOURCE" ./vyos-equuleus-image-gce.tar.gz
       - uses: "marvinpinto/action-automatic-releases@latest"
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
         with:
@@ -178,4 +178,4 @@ jobs:
           title: "Build commit ${{ needs.CheckBuildRequired.outputs.commit }} on ${{ needs.CheckBuildRequired.outputs.commit_datetime }}"
           files: |
             *.iso
-            vyos-sagitta-image-gce.tar.gz
+            vyos-equuleus-image-gce.tar.gz
