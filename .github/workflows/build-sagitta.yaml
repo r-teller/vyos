@@ -1,0 +1,181 @@
+name: Build Sagitta
+on: 
+  push:
+    branches:
+      - development
+      - main
+jobs:
+  CheckBuildRequired:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.calculate_outputs.outputs.SHOULD_BUILD }}
+      commit: ${{ steps.check_commit.outputs.SAGITTA_COMMIT }}
+      commit_datetime: ${{ steps.check_commit.outputs.COMMIT_DATETIME}}
+      branch_name: ${{ steps.extract_branch.outputs.BRANCH_NAME}}
+    steps:
+      - name: Extract branch name
+        shell: bash
+        run: echo "::set-output BRANCH_NAME=${{env.GITHUB_REF}}"
+        id: extract_branch
+      - name: Get vyos-build info
+        id: check_commit
+        run: |
+          # Clone the build script
+          git clone -b sagitta --single-branch https://github.com/vyos/vyos-build
+          cd vyos-build
+          COMMIT_ID=$(git rev-parse HEAD)
+          COMMIT_DATETIME=$(git show -s --format=%cd --date=format:'%Y%m%d%H%M%S' $COMMIT_ID)
+
+          # Save the commit id as output
+          echo "::set-output name=SAGITTA_COMMIT::$COMMIT_ID"
+          echo "::set-output name=COMMIT_DATETIME::$COMMIT_DATETIME"
+
+          # Remove the cloned data
+          cd ..
+          rm -R vyos-build
+      - name: Check local release exists
+        id: existing_release_id
+        uses: cardinalby/git-get-release-action@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          tag: ${{ steps.check_commit.outputs.COMMIT_DATETIME }}
+          doNotFailIfNotFound: true
+          prerelease: ${{needs.CheckBuildRequired.outputs.branch_name != 'main'}}
+      - name: Check out local repository code
+        uses: actions/checkout@v3
+      - name: Calculate outputs
+        id: calculate_outputs
+        run: |
+          LOCAL_COMMIT_SHA=$(git rev-parse HEAD)
+          git fetch --tags
+          if [[  "${{steps.existing_release_id.outputs.tag_name}}" == "" ]]; then
+            LATEST_RELEASE_TAG_SHA=""
+            EXISTING_RELEASE_ID=""
+          else
+            git checkout refs/tags/${{steps.existing_release_id.outputs.tag_name}}
+            LATEST_RELEASE_TAG_SHA=$(git rev-parse HEAD)
+            EXISTING_RELEASE_ID="${{steps.existing_release_id.outputs.id}}"
+          fi
+          
+          if [[ $EXISTING_RELEASE_ID == "" ]]; then
+            EXISTING_RELEASE_EMPTY="true"
+          else
+            EXISTING_RELEASE_EMPTY="false"
+          fi
+          
+          echo "Release ID: $EXISTING_RELEASE_ID"
+          echo "Release ID is NULL?: $EXISTING_RELEASE_EMPTY"
+          echo "Local run commit SHA: $LOCAL_COMMIT_SHA"
+          echo "Latest release tag Name: ${{steps.existing_release_id.outputs.tag_name}}"
+          echo "Latest release commit SHA: $LATEST_RELEASE_TAG_SHA"
+          
+          if [[ $EXISTING_RELEASE_EMPTY == "true" ||  $LOCAL_COMMIT_SHA != $LATEST_RELEASE_TAG_SHA ]]; then
+            SHOULD_BUILD="true"
+          else
+            SHOULD_BUILD="false"
+          fi
+          echo "Should BUILD: $SHOULD_BUILD"
+          echo "::set-output name=SHOULD_BUILD::$SHOULD_BUILD"
+
+  BuildAndRelease:
+    needs: CheckBuildRequired
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print info
+        run: |
+          echo "Should Build: ${{ needs.CheckBuildRequired.outputs.should_build }}"
+          echo "Commit Datetime: ${{ needs.CheckBuildRequired.outputs.commit_datetime }}"
+          echo "Commit Hash: ${{ needs.CheckBuildRequired.outputs.commit }}"
+      - name: Check out local repository code
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+        uses: actions/checkout@v3
+      - name: Check out VyOS-Build repository
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+        uses: actions/checkout@v3
+        with:
+          repository: 'vyos/vyos-build'
+          ref: ${{ needs.CheckBuildRequired.outputs.commit }}
+          path: './vyos-build'
+      - name: Install the dependencies
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apt-transport-https ca-certificates curl gnupg2 software-properties-common
+      - name: Pull docker image
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+        run: |
+          docker pull "vyos/vyos-build:sagitta"
+      - name: "Patch the make scripts"
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+        run: |
+          # Manipulate the image so that we add minimum configuration file for GCE
+          cp ./images/gce/build-patches/tools/cloud-init/GCE/config.boot.default ./vyos-build/tools/cloud-init/GCE/config.boot.default
+          cp -vR ./images/gce/chroot-patches/* ./vyos-build/data/live-build-config/includes.chroot/
+          cp -vR ./images/gce/live-hooks-patches/* ./vyos-build/data/live-build-config/hooks/live/
+          # Inject the grub boot parameters
+          cat ./images/gce/scripts/build-GCE-image | sed -e 's/boot=live/boot=live net.ifnames=0 biosdevname=0/' ./vyos-build/scripts/build-GCE-image>/tmp/gce-build-script
+          cp /tmp/gce-build-script ./vyos-build/scripts/build-GCE-image
+      - name: Build ISO
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+        run: |
+          docker run \
+              --rm \
+              -v "$(pwd)":/gce-vyos \
+              -v "$(pwd)/vyos-build":/vyos-build \
+              -e VYOS_VERSION="sagitta" \
+              -e BUILD_BY="Github Action" \
+              -w /vyos-build \
+              --privileged \
+              --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
+              -e GOSU_UID=$(id -u) \
+              -e GOSU_GID=$(id -g) \
+              "vyos/vyos-build:sagitta" \
+              bash "/gce-vyos/vyos-gce-image/build_script.sh" iso
+      - uses: actions/upload-artifact@v3
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+        with:
+          name: ISO
+          path: |
+            ./vyos-build/build/*.iso
+      - name: Move ISO
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+        run: |
+          mv ./vyos-build/build/*.iso ./
+      - id: buildgce
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+        name: Build GCE Image
+        run: |
+          docker run \
+              --rm \
+              -v "$(pwd)":/gce-vyos \
+              -v "$(pwd)/vyos-build":/vyos-build \
+              -e VYOS_VERSION="sagitta" \
+              -e BUILD_BY="Github Action" \
+              -w /vyos-build \
+              --privileged \
+              --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
+              -e GOSU_UID=$(id -u) \
+              -e GOSU_GID=$(id -g) \
+              "vyos/vyos-build:sagitta" \
+              bash "/gce-vyos/vyos-gce-image/build_script.sh" GCE
+      - uses: actions/upload-artifact@v3
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+        with:
+          name: GCE-IMAGE
+          path: ./vyos-build/build/*.tar.gz
+      - name: Move GCE image
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+        run: |
+          SOURCE=$(ls ./vyos-build/build/VyOS-*.tar.gz)
+          mv "$SOURCE" ./vyos-sagitta-image-gce.tar.gz
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "${{ needs.CheckBuildRequired.outputs.commit_datetime }}"
+          prerelease: ${{needs.CheckBuildRequired.outputs.branch_name != 'main'}}
+          title: "Build commit ${{ needs.CheckBuildRequired.outputs.commit }} on ${{ needs.CheckBuildRequired.outputs.commit_datetime }}"
+          files: |
+            *.iso
+            vyos-sagitta-image-gce.tar.gz

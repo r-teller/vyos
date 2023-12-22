@@ -1,0 +1,20 @@
+# Contents of /etc/systemd/system/login_helper.service
+
+[Unit]
+Description=VyOs login helper
+Wants=network-online.target
+After=network-online.target
+After=vyos.target
+After=vyos-http-api.target
+
+[Service]
+User=root
+Group=vyattacfg
+Type=simple
+Restart=always
+RestartSec=30s
+ExecStart=/opt/gce_helper/.venv/bin/python /opt/gce_helper/login_sync.py
+WorkingDirectory=/opt/gce_helper
+
+[Install]
+WantedBy=multi-user.target
