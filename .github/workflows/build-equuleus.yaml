@@ -151,5 +151,4 @@ jobs:
           prerelease: ${{needs.CheckBuildRequired.outputs.branch_name != 'main'}}
           title: "Build commit ${{ needs.CheckBuildRequired.outputs.commit }} on ${{ needs.CheckBuildRequired.outputs.commit_datetime }}"
           files: |
-            *.iso
             vyos-equuleus-image-gce.tar.gz
