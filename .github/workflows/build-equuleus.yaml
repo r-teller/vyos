@@ -116,35 +116,9 @@ jobs:
           # Inject the grub boot parameters
           sed -e 's/boot=live/boot=live net.ifnames=0 biosdevname=0/' ./vyos-build/scripts/build-GCE-image>/tmp/gce-build-script
           cp /tmp/gce-build-script ./vyos-build/scripts/build-GCE-image
-      - name: Build ISO
-        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
-        run: |
-          docker run \
-              --rm \
-              -v "$(pwd)":/build \
-              -v "$(pwd)/vyos-build":/vyos-build \
-              -e VYOS_VERSION="equuleus" \
-              -e BUILD_BY="Github Action" \
-              -w /vyos-build \
-              --privileged \
-              --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
-              -e GOSU_UID=$(id -u) \
-              -e GOSU_GID=$(id -g) \
-              "vyos/vyos-build:equuleus" \
-              bash "/build/images/gce/build_script.sh" iso
-      - uses: actions/upload-artifact@v3
-        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
-        with:
-          name: ISO
-          path: |
-            ./vyos-build/build/*.iso
-      - name: Move ISO
-        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
-        run: |
-          mv ./vyos-build/build/*.iso ./
-      - id: buildgce
-        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
-        name: Build GCE Image
+      - name: Build GCE Image
+        id: buildgce
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}        
         run: |
           docker run \
               --rm \
