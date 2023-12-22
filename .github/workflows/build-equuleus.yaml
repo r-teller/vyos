@@ -148,7 +148,7 @@ jobs:
         run: |
           docker run \
               --rm \
-              -v "$(pwd)":/gce-vyos \
+              -v "$(pwd)":/build \
               -v "$(pwd)/vyos-build":/vyos-build \
               -e VYOS_VERSION="equuleus" \
               -e BUILD_BY="Github Action" \
@@ -158,7 +158,7 @@ jobs:
               -e GOSU_UID=$(id -u) \
               -e GOSU_GID=$(id -g) \
               "vyos/vyos-build:equuleus" \
-              bash "/gce-vyos/vyos-gce-image/build_script.sh" GCE
+              bash "/build/images/gce/build_script.sh" GCE
       - uses: actions/upload-artifact@v3
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
         with:
