@@ -143,12 +143,12 @@ jobs:
         run: |
           SOURCE=$(ls ./vyos-build/build/VyOS-*.tar.gz)
           mv "$SOURCE" ./vyos-equuleus-image-gce.tar.gz
-      - uses: "marvinpinto/action-automatic-releases@latest"
+      # Create or update a GitHub release and upload the artifact
+      - name: Create or Update Release
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+        id: create_or_update_release
+        uses: softprops/action-gh-release@v1
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "${{ needs.CheckBuildRequired.outputs.commit_datetime }}"
-          prerelease: ${{needs.CheckBuildRequired.outputs.branch_name != 'main'}}
-          title: "Build commit ${{ needs.CheckBuildRequired.outputs.commit }} on ${{ needs.CheckBuildRequired.outputs.commit_datetime }}"
-          files: |
-            vyos-equuleus-image-gce.tar.gz
+          files: ./vyos-equuleus-image-gce.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
