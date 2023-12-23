@@ -1,9 +1,11 @@
 name: Build Equuleus
 on: 
   push:
-    branches:
-      - development
-      - main
+    # Publish semver tags as releases.
+    tags: [ 'v*.*.*' ]
+env:
+  RELEASE_VERSION: ${{ github.ref_name }}
+
 jobs:
   CheckBuildRequired:
     runs-on: ubuntu-latest
@@ -98,11 +100,30 @@ jobs:
           ref: ${{ needs.CheckBuildRequired.outputs.commit }}
           path: './vyos-build'
       - name: Install the dependencies
+        id: InstallBuildDependencies
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y apt-transport-https ca-certificates curl gnupg2 software-properties-common
-      - name: Pull docker image
+
+      # Cache Docker image
+      - name: Cache Docker image
+        uses: actions/cache@v2
+        with:
+          path: ~/.docker
+          key: docker-${{ runner.os }}
+
+      # Cache VyOS build dependencies
+      - name: Cache VyOS build dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.ccache/
+            vyos-build/cache
+          key: vyos-build-${{ runner.os }}
+
+      - name: Pull Docker image
+        id: PullDockerImage
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
         run: |
           docker pull "vyos/vyos-build:equuleus"
@@ -116,6 +137,7 @@ jobs:
           # Inject the grub boot parameters
           sed -e 's/boot=live/boot=live net.ifnames=0 biosdevname=0/' ./vyos-build/scripts/build-GCE-image>/tmp/gce-build-script
           cp /tmp/gce-build-script ./vyos-build/scripts/build-GCE-image
+
       - name: Build GCE Image
         id: buildgce
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}        
@@ -133,22 +155,45 @@ jobs:
               -e GOSU_GID=$(id -g) \
               "vyos/vyos-build:equuleus" \
               bash "/build/images/gce/build_script.sh" GCE
-      - uses: actions/upload-artifact@v3
+
+      # Cache Docker image (again, in case it was pulled)
+      - name: Cache Docker image
+        uses: actions/cache@v2
+        with:
+          path: ~/.docker
+          key: docker-${{ runner.os }}
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+
+      # Cache VyOS build dependencies (again, in case they were installed)
+      - name: Cache VyOS build dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.ccache/
+            vyos-build/cache
+          key: vyos-build-${{ runner.os }}
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+
+      - name: Upload GCE image artifact
+        if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
+        uses: actions/upload-artifact@v3
         with:
           name: GCE-IMAGE
           path: ./vyos-build/build/*.tar.gz
+
       - name: Move GCE image
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
         run: |
           SOURCE=$(ls ./vyos-build/build/VyOS-*.tar.gz)
           mv "$SOURCE" ./vyos-equuleus-image-gce.tar.gz
+
       # Create or update a GitHub release and upload the artifact
       - name: Create or Update Release
         if: ${{ needs.CheckBuildRequired.outputs.should_build == 'true' }}
         id: create_or_update_release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ env.RELEASE_VERSION  }}
           files: ./vyos-equuleus-image-gce.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
