@@ -1,2 +1,2 @@
-vyos-build
+**/vyos-build/*
 **/__pycache__/*
