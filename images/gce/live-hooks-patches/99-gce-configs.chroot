@@ -12,14 +12,14 @@ EOM
 #deb http://security.debian.org/debian-security/ ${REPO_CODENAME}-security main
 #deb-src http://security.debian.org/debian-security/ ${REPO_CODENAME}-security main
 
-tee /etc/apt/sources.list.d/debian-${REPO_CODENAME}.list << EOM
-deb http://deb.debian.org/debian/ ${REPO_CODENAME} main
-deb-src http://deb.debian.org/debian/ ${REPO_CODENAME} main
-#deb http://security.debian.org/debian-security/ ${REPO_CODENAME}/security main
-#deb-src http://security.debian.org/debian-security/ ${REPO_CODENAME}/security main
-deb http://deb.debian.org/debian/ ${REPO_CODENAME}-updates main
-deb-src http://deb.debian.org/debian/ ${REPO_CODENAME}-updates main
-EOM
+# tee /etc/apt/sources.list.d/debian-${REPO_CODENAME}.list << EOM
+# deb http://deb.debian.org/debian/ ${REPO_CODENAME} main
+# deb-src http://deb.debian.org/debian/ ${REPO_CODENAME} main
+# #deb http://security.debian.org/debian-security/ ${REPO_CODENAME}/security main
+# #deb-src http://security.debian.org/debian-security/ ${REPO_CODENAME}/security main
+# deb http://deb.debian.org/debian/ ${REPO_CODENAME}-updates main
+# deb-src http://deb.debian.org/debian/ ${REPO_CODENAME}-updates main
+# EOM
 
 
 echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
@@ -29,7 +29,9 @@ curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /
 # Install compute agent & cloud-sdk
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt install -y google-cloud-packages-archive-keyring
-DEBIAN_FRONTEND=noninteractive apt install -y google-compute-engine google-osconfig-agent google-cloud-sdk
+DEBIAN_FRONTEND=noninteractive apt install -y google-compute-engine google-osconfig-agent google-cloud-sdk=424.0.0-0
+
+apt-mark hold google-cloud-sdk
 
 # Install OPS agent
 curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
@@ -63,7 +65,7 @@ sudo rm /tmp/google-cloud-ops-agent-opentelemetry-collector.service
 
 # Install services
 sudo systemctl daemon-reload
-sudo systemctl enable conf_reloader.service
+sudo systemctl enable conf_loader.service
 sudo systemctl enable login_helper.service
 
 # Configure the agent to automatically set users to vyattacfg group

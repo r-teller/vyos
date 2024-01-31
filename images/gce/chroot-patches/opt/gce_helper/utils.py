@@ -6,16 +6,18 @@ import os
 from exceptions import MetadataException
 from typing.io import TextIO
 
-_METADATA_HOST="http://metadata.google.internal"
+_METADATA_HOST = "http://metadata.google.internal"
 l = logging.getLogger(__name__)
 
 
-def get_metadata(metadata_path: str,
-                 alt: str = None,
-                 wait_for_changes: Optional[bool] = None,
-                 timeout_sec: Optional[int] = None,
-                 additional_params: Optional[Dict] = None,
-                 error_if_not_found: Optional[bool] = True):
+def get_metadata(
+    metadata_path: str,
+    alt: str = None,
+    wait_for_changes: Optional[bool] = None,
+    timeout_sec: Optional[int] = None,
+    additional_params: Optional[Dict] = None,
+    error_if_not_found: Optional[bool] = True,
+):
     """Fetches metadata from metadata server"""
     params = {}
     if wait_for_changes is not None:
@@ -26,18 +28,24 @@ def get_metadata(metadata_path: str,
         params["alt"] = alt
     if additional_params is not None:
         params.update(additional_params)
-    resp = requests.get(url=f"{_METADATA_HOST}{metadata_path}",
-                        params=params,
-                        headers={"Metadata-Flavor": "Google"},
-                        timeout=timeout_sec)
+    resp = requests.get(
+        url=f"{_METADATA_HOST}{metadata_path}",
+        params=params,
+        headers={"Metadata-Flavor": "Google"},
+        timeout=timeout_sec,
+    )
     if resp.status_code != 200:
         if resp.status_code == 404 and not error_if_not_found:
             return None
-        raise MetadataException(f"Cannot access metadata: {metadata_path}. Return code: {resp.status_code}")
+        raise MetadataException(
+            f"Cannot access metadata: {metadata_path}. Return code: {resp.status_code}"
+        )
     return resp.text
 
 
-def download_gcs_file(project_id: str, bucket_id:str, object_id: str, file_obj: TextIO):
+def download_gcs_file(
+    project_id: str, bucket_id: str, object_id: str, file_obj: TextIO
+):
     """Downloads a file from GCS."""
     storage_client = storage.Client(project_id)
     bucket = storage_client.get_bucket(bucket_id)
@@ -52,16 +60,22 @@ def parse_gce_notification(message) -> Tuple[str, str, str]:
     object_id = message.attributes.get("objectId")
 
     if event_type is None:
-        raise ValueError(f"Invalid pubsub message: {message}. No event_type was found within its attributes.")
+        raise ValueError(
+            f"Invalid pubsub message: {message}. No event_type was found within its attributes."
+        )
     if bucket_id is None:
-        raise ValueError(f"Invalid pubsub message: {message}. No bucket_id was found within its attributes.")
+        raise ValueError(
+            f"Invalid pubsub message: {message}. No bucket_id was found within its attributes."
+        )
     if object_id is None:
-        raise ValueError(f"Invalid pubsub message: {message}. No object_id was found within its attributes.")
+        raise ValueError(
+            f"Invalid pubsub message: {message}. No object_id was found within its attributes."
+        )
 
     return event_type, bucket_id, object_id
 
 
-def add_user_to_group(user:str, group:str) -> bool:
+def add_user_to_group(user: str, group: str) -> bool:
     """Adds user to group and returns True if the operation succeeded, False otherwise."""
     l.debug("Adding user %s to group %s", user, group)
     retcode = os.system(f"sudo adduser {user} {group}")

@@ -3,7 +3,11 @@ import google.cloud.logging
 from google.cloud.logging.handlers import CloudLoggingHandler
 
 
-def setup_logging(root_level=logging.INFO, cloud_handler_level=logging.INFO, formatter_string='%(name)s - %(message)s'):
+def setup_logging(
+    root_level=logging.INFO,
+    cloud_handler_level=logging.INFO,
+    formatter_string="%(name)s - %(message)s",
+):
     log_client = google.cloud.logging.Client()
     handler = CloudLoggingHandler(log_client)
     root_logger = logging.getLogger()
