@@ -4,12 +4,9 @@ from utils import get_metadata
 
 
 class Configuration:
-    def __init__(
-        self, project_id: str, pubsub_subscription: str, bucket_id: str, object_id: str
-    ):
+    def __init__(self, project_id: str, bucket_id: str, object_id: str):
         """Constructor."""
         self._project_id = project_id
-        self._pubsub_subscription_path = pubsub_subscription
         self._bucket_id = bucket_id
         self._object_id = object_id
 

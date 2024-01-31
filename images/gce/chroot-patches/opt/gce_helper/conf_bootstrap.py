@@ -1,9 +1,8 @@
 import tempfile
 import os
 import logging
-from google.cloud import pubsub_v1
 from gcelogging import setup_logging
-from constants import VYOS_API_PORT, CONF_LOADER_LOG_NAME
+from constants import VYOS_API_PORT, CONF_BOOTSTRAP_LOG_NAME
 from configuration import configuration
 from utils import download_gcs_file
 from vyos_api import get_local_api_client
@@ -13,10 +12,10 @@ from vyos.configtree import (
 from exceptions import ConfigurationDownloadException
 
 
-_CLIENT_ID = "CONF_LOADER"
+_CLIENT_ID = "CONF_BOOTSTRAP"
 
 
-l = logging.getLogger(CONF_LOADER_LOG_NAME)
+l = logging.getLogger(CONF_BOOTSTRAP_LOG_NAME)
 
 
 def load_configuration(project_id, bucket_id, object_id):
@@ -78,7 +77,7 @@ def load_configuration(project_id, bucket_id, object_id):
 
 def main() -> None:
     """Entry point of the application."""
-    l.info("Starting conf_loader daemon.")
+    l.info("Starting conf_bootstrap daemon.")
 
     setup_logging()
 

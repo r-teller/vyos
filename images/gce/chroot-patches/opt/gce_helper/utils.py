@@ -52,29 +52,6 @@ def download_gcs_file(
     blob = bucket.blob(object_id)
     blob.download_to_file(file_obj=file_obj)
 
-
-def parse_gce_notification(message) -> Tuple[str, str, str]:
-    """Parse a GCS notification event."""
-    event_type = message.attributes.get("eventType")
-    bucket_id = message.attributes.get("bucketId")
-    object_id = message.attributes.get("objectId")
-
-    if event_type is None:
-        raise ValueError(
-            f"Invalid pubsub message: {message}. No event_type was found within its attributes."
-        )
-    if bucket_id is None:
-        raise ValueError(
-            f"Invalid pubsub message: {message}. No bucket_id was found within its attributes."
-        )
-    if object_id is None:
-        raise ValueError(
-            f"Invalid pubsub message: {message}. No object_id was found within its attributes."
-        )
-
-    return event_type, bucket_id, object_id
-
-
 def add_user_to_group(user: str, group: str) -> bool:
     """Adds user to group and returns True if the operation succeeded, False otherwise."""
     l.debug("Adding user %s to group %s", user, group)

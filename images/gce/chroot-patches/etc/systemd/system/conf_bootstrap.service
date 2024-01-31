@@ -1,0 +1,19 @@
+# Contents of /etc/systemd/system/conf_bootstrap.service
+
+[Unit]
+Description=VyOs configuration bootstrap loader
+After=network-online.target vyos.target vyos-http-api.target
+DefaultDependencies=no
+
+[Service]
+User=root
+Group=vyattacfg
+Type=oneshot
+Restart=never
+RemainAfterExit=yes
+ExecStart=/opt/gce_helper/.venv/bin/python /opt/gce_helper/conf_bootstrap.py
+ExecStartPost=/bin/systemctl disable conf_bootstrap.service
+WorkingDirectory=/opt/gce_helper
+
+[Install]
+WantedBy=multi-user.target
